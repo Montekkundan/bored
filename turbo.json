@@ -20,6 +20,9 @@
     },
     "stop": {
       "cache": false
+    },
+    "ui": {
+      "cache": false
     }
   }
 }
