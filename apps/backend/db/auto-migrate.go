@@ -15,5 +15,6 @@ func DBMigrator(db *gorm.DB) error {
 		&models.ChatMember{},
 		&models.Message{},
 		&models.ModerationVote{},
+		&models.RefreshToken{},
 	)
 }

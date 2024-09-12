@@ -199,11 +199,49 @@ func (h *AuthHandler) EnableTwoFactor(ctx *fiber.Ctx) error {
 }
 
 func (h *AuthHandler) Logout(ctx *fiber.Ctx) error {
-	// ask the client to discard the token
+	refreshToken := ctx.Cookies("refresh_token")
+	if refreshToken == "" {
+		return ctx.Status(fiber.StatusBadRequest).JSON(&fiber.Map{
+			"status":  "fail",
+			"message": "No refresh token provided",
+		})
+	}
+
+	err := h.authService.Logout(ctx.Context(), refreshToken)
+	if err != nil {
+		return ctx.Status(fiber.StatusInternalServerError).JSON(&fiber.Map{
+			"status":  "fail",
+			"message": "Logout failed",
+		})
+	}
 
 	return ctx.Status(fiber.StatusOK).JSON(&fiber.Map{
 		"status":  "success",
-		"message": "Successfully logged out",
+		"message": "Logged out successfully",
+	})
+}
+
+func (h *AuthHandler) RotateRefreshToken(ctx *fiber.Ctx) error {
+	refreshToken := ctx.Cookies("refresh_token")
+	if refreshToken == "" {
+		return ctx.Status(fiber.StatusBadRequest).JSON(&fiber.Map{
+			"status":  "fail",
+			"message": "No refresh token provided",
+		})
+	}
+
+	tokens, err := h.authService.RotateRefreshToken(ctx.Context(), refreshToken)
+	if err != nil {
+		return ctx.Status(fiber.StatusUnauthorized).JSON(&fiber.Map{
+			"status":  "fail",
+			"message": err.Error(),
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(&fiber.Map{
+		"status":  "success",
+		"message": "Tokens refreshed",
+		"data":    tokens,
 	})
 }
 
@@ -219,4 +257,5 @@ func NewAuthHandler(route fiber.Router, authService models.AuthService, userServ
 	route.Post("/verify-phone", handler.VerifyPhoneNumber)
 	route.Post("/enable-2fa", handler.EnableTwoFactor)
 	route.Post("/logout", handler.Logout)
+	route.Post("/rotate-token", handler.RotateRefreshToken)
 }

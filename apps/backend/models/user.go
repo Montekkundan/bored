@@ -25,6 +25,7 @@ type User struct {
 	Username         string           `json:"username" gorm:"text;not null;unique"`
 	Email            string           `json:"email" gorm:"text;not null;unique"` // email will be like username@bored.rocks
 	PasswordHash     string           `json:"-" gorm:"text;not null"`            // Do not expose password hash in JSON
+	TokenVersion     int              `json:"token_version" gorm:"default:1"`
 	Bio              string           `json:"bio" gorm:"text"`
 	Interests        []string         `json:"interests" gorm:"type:text[]"`
 	Latitude         float64          `json:"latitude" gorm:"numeric(9,6)"`

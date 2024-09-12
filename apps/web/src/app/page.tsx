@@ -5,6 +5,7 @@ import { Input } from "@repo/ui/components/ui/input"
 import { Label } from "@repo/ui/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@repo/ui/components/ui/card"
 import { Button } from '@repo/ui/components/ui/button'
+import { fetchWithAuth } from '@/lib/api'
 
 interface User {
   id: number
@@ -32,7 +33,10 @@ interface User {
 
 interface LoginResponse {
   data: {
-    token: string
+    token: {
+      access_token: string
+      refresh_token: string
+    }
     user: User
   }
   message: string
@@ -75,9 +79,9 @@ export default function UserAuthPage() {
       if (!response.ok) {
         throw new Error(data.message || 'An error occurred during login')
       }
-      setToken(data.data.token)
+      setToken(data.data.token.access_token)
       setCurrentUser(data.data.user)
-      localStorage.setItem('token', data.data.token)
+      localStorage.setItem('token', data.data.token.access_token)
       localStorage.setItem('user', JSON.stringify(data.data.user))
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred during login')
@@ -89,11 +93,8 @@ export default function UserAuthPage() {
   const handleLogout = async () => {
     setLoading(true)
     try {
-      const response = await fetch('/api/auth/logout', {
+      const response = await fetchWithAuth('/api/auth/logout', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
       })
       const data = await response.json()
       if (!response.ok) {
@@ -117,11 +118,7 @@ export default function UserAuthPage() {
     }
     setLoading(true)
     try {
-      const response = await fetch(`/api/users`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      })
+      const response = await fetchWithAuth(`/api/users`)
       if (!response.ok) {
         throw new Error('Failed to fetch users')
       }

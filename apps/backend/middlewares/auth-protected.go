@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/golang-jwt/jwt/v5"
@@ -19,8 +20,7 @@ func AuthProtected(db *gorm.DB) fiber.Handler {
 		authHeader := ctx.Get("Authorization")
 
 		if authHeader == "" {
-			log.Println("empty authorization header")
-
+			log.Println("Empty authorization header")
 			return ctx.Status(fiber.StatusUnauthorized).JSON(&fiber.Map{
 				"status":  "fail",
 				"message": "Unauthorized",
@@ -30,8 +30,7 @@ func AuthProtected(db *gorm.DB) fiber.Handler {
 		tokenParts := strings.Split(authHeader, " ")
 
 		if len(tokenParts) != 2 || tokenParts[0] != "Bearer" {
-			log.Println("invalid token parts")
-
+			log.Println("Invalid token parts")
 			return ctx.Status(fiber.StatusUnauthorized).JSON(&fiber.Map{
 				"status":  "fail",
 				"message": "Unauthorized",
@@ -39,7 +38,9 @@ func AuthProtected(db *gorm.DB) fiber.Handler {
 		}
 
 		tokenStr := tokenParts[1]
-		secret := []byte(os.Getenv("JWT_SECRET"))
+		log.Printf("JWT token received: %v", tokenStr)
+		secret := []byte(os.Getenv("ACCESS_TOKEN_SECRET"))
+		log.Printf("JWT secret: %v", secret)
 
 		token, err := jwt.Parse(tokenStr, func(token *jwt.Token) (interface{}, error) {
 			if token.Method.Alg() != jwt.GetSigningMethod("HS256").Alg() {
@@ -49,8 +50,7 @@ func AuthProtected(db *gorm.DB) fiber.Handler {
 		})
 
 		if err != nil || !token.Valid {
-			log.Println("invalid token")
-
+			log.Printf("Invalid token: %v", err)
 			return ctx.Status(fiber.StatusUnauthorized).JSON(&fiber.Map{
 				"status":  "fail",
 				"message": "Unauthorized",
@@ -75,6 +75,23 @@ func AuthProtected(db *gorm.DB) fiber.Handler {
 			})
 		}
 
+		exp, ok := claims["exp"].(float64)
+		if !ok {
+			log.Println("Invalid exp claim format")
+			return ctx.Status(fiber.StatusUnauthorized).JSON(&fiber.Map{
+				"status":  "fail",
+				"message": "Unauthorized",
+			})
+		}
+
+		if time.Now().Unix() > int64(exp) {
+			log.Println("Token has expired")
+			return ctx.Status(fiber.StatusUnauthorized).JSON(&fiber.Map{
+				"status":  "fail",
+				"message": "Token has expired",
+			})
+		}
+
 		var user models.User
 		if err := db.First(&user, uint(userId)).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -84,7 +101,6 @@ func AuthProtected(db *gorm.DB) fiber.Handler {
 					"message": "Unauthorized",
 				})
 			}
-			// Handle unexpected database errors
 			return ctx.Status(fiber.StatusInternalServerError).JSON(&fiber.Map{
 				"status":  "fail",
 				"message": "Internal server error",

@@ -7,7 +7,9 @@ import (
 	"os"
 	"time"
 
+	"github.com/go-redis/redis/v8"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/montekkundan/bored/backend/config"
 	"github.com/montekkundan/bored/backend/models"
 	"github.com/montekkundan/bored/backend/utils"
 	"golang.org/x/crypto/bcrypt"
@@ -15,60 +17,123 @@ import (
 )
 
 type AuthService struct {
-	repository  models.AuthRepository
-	userService models.UserService
+	repository       models.AuthRepository
+	userService      models.UserService
+	refreshTokenRepo models.RefreshTokenRepository
+	redisClient      *redis.Client
+	config           *config.EnvConfig
 }
 
-func (s *AuthService) Login(ctx context.Context, loginData *models.AuthCredentials) (string, *models.User, error) {
+func (s *AuthService) Login(ctx context.Context, loginData *models.AuthCredentials) (map[string]string, *models.User, error) {
 	var user *models.User
 	var err error
 
-	// Check if username or email is provided for login
 	if loginData.Username != "" {
 		user, err = s.userService.GetUserByUsername(ctx, loginData.Username)
 	} else if loginData.Email != "" {
 		user, err = s.userService.GetUserByEmail(ctx, loginData.Email)
 	} else {
-		return "", nil, fmt.Errorf("please provide either email or username")
+		return nil, nil, errors.New("please provide either email or username")
 	}
 
-	// Handle user not found
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return "", nil, fmt.Errorf("invalid credentials")
+			return nil, nil, errors.New("invalid credentials")
 		}
-		return "", nil, err
+		return nil, nil, err
 	}
 
-	// Validate password
 	if !models.MatchesHash(loginData.Password, user.PasswordHash) {
-		return "", nil, fmt.Errorf("invalid credentials")
+		return nil, nil, errors.New("invalid credentials")
 	}
 
-	// Check email verification
 	if !user.EmailVerified {
-		return "", nil, fmt.Errorf("email not verified")
+		return nil, nil, errors.New("email not verified")
 	}
 
-	// Check 2FA if enabled
-	if user.TwoFactorEnabled && !s.IsValidTwoFACode(loginData.TwoFACode) {
-		return "", nil, fmt.Errorf("invalid or missing 2FA code")
-	}
+	tokenVersion := user.TokenVersion
 
-	// Generate JWT
-	claims := jwt.MapClaims{
-		"id":   user.ID,
-		"role": user.Roles,
-		"exp":  time.Now().Add(time.Hour * 168).Unix(),
-	}
-
-	token, err := utils.GenerateJWT(claims, jwt.SigningMethodHS256, os.Getenv("JWT_SECRET"))
-
+	accessToken, err := utils.GenerateAccessToken(user.ID, user.Roles, tokenVersion, s.config.AccessTokenSecret, s.config.AccessTokenExpiry)
 	if err != nil {
-		return "", nil, err
+		return nil, nil, err
 	}
 
-	return token, user, nil
+	refreshToken, err := utils.GenerateRefreshToken(user.ID, tokenVersion, s.config.RefreshTokenSecret, s.config.RefreshTokenExpiry)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Store Refresh Token in the DB
+	expiresAt := time.Now().Add(time.Hour * 24 * time.Duration(s.config.RefreshTokenExpiry))
+	err = s.refreshTokenRepo.Create(ctx, &models.RefreshToken{
+		UserID:    user.ID,
+		Token:     refreshToken,
+		ExpiresAt: expiresAt,
+	})
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return map[string]string{
+		"access_token":  accessToken,
+		"refresh_token": refreshToken,
+	}, user, nil
+}
+
+func (s *AuthService) Logout(ctx context.Context, refreshToken string) error {
+	// Remove refresh token from database
+	return s.refreshTokenRepo.Delete(ctx, refreshToken)
+}
+
+func (s *AuthService) RotateRefreshToken(ctx context.Context, oldRefreshToken string) (map[string]string, error) {
+	// Verify the refresh token
+	storedToken, err := s.refreshTokenRepo.FindByToken(ctx, oldRefreshToken)
+	if err != nil || storedToken.ExpiresAt.Before(time.Now()) {
+		return nil, errors.New("invalid or expired refresh token")
+	}
+
+	user, err := s.userService.GetUserByID(ctx, storedToken.UserID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Invalidate the old refresh token
+	err = s.refreshTokenRepo.Delete(ctx, oldRefreshToken)
+	if err != nil {
+		return nil, err
+	}
+
+	// Generate new tokens
+	tokenVersion := user.TokenVersion
+	accessToken, err := utils.GenerateAccessToken(user.ID, user.Roles, tokenVersion, s.config.AccessTokenSecret, s.config.AccessTokenExpiry)
+	if err != nil {
+		return nil, err
+	}
+
+	refreshToken, err := utils.GenerateRefreshToken(user.ID, tokenVersion, s.config.RefreshTokenSecret, s.config.RefreshTokenExpiry)
+	if err != nil {
+		return nil, err
+	}
+
+	expiresAt := time.Now().Add(time.Hour * 24 * time.Duration(s.config.RefreshTokenExpiry))
+	err = s.refreshTokenRepo.Create(ctx, &models.RefreshToken{
+		UserID:    user.ID,
+		Token:     refreshToken,
+		ExpiresAt: expiresAt,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return map[string]string{
+		"access_token":  accessToken,
+		"refresh_token": refreshToken,
+	}, nil
+}
+
+// Blacklist access tokens in Redis
+func (s *AuthService) BlacklistAccessToken(ctx context.Context, accessToken string, expiry time.Duration) error {
+	return s.redisClient.Set(ctx, accessToken, "blacklisted", expiry).Err()
 }
 
 func (s *AuthService) Register(ctx context.Context, registerData *models.AuthCredentials) (string, *models.User, error) {
@@ -126,9 +191,18 @@ func (s *AuthService) IsValidTwoFACode(twoFACode string) bool {
 	return twoFACode == "654321"
 }
 
-func NewAuthService(repository models.AuthRepository, userService models.UserService) models.AuthService {
+func NewAuthService(
+	repository models.AuthRepository,
+	userService models.UserService,
+	config config.EnvConfig,
+	refreshTokenRepo models.RefreshTokenRepository,
+	redisClient *redis.Client,
+) models.AuthService {
 	return &AuthService{
-		repository:  repository,
-		userService: userService,
+		repository:       repository,
+		userService:      userService,
+		config:           &config,
+		refreshTokenRepo: refreshTokenRepo,
+		redisClient:      redisClient,
 	}
 }

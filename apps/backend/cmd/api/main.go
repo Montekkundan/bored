@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 
+	"github.com/go-redis/redis/v8"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/montekkundan/bored/backend/config"
@@ -16,6 +17,10 @@ import (
 func main() {
 	envConfig := config.NewEnvConfig()
 	db := db.Init(envConfig, db.DBMigrator)
+
+	redisClient := redis.NewClient(&redis.Options{
+		Addr: fmt.Sprintf("%s:%s", envConfig.RedisHost, envConfig.RedisPort),
+	})
 
 	app := fiber.New(fiber.Config{
 		AppName:      "Bored",
@@ -35,10 +40,11 @@ func main() {
 	userRepository := repositories.NewUserRepository(db)
 	chatRepository := repositories.NewChatRepository(db)
 	oauthProviderRepository := repositories.NewOAuthProviderRepository(db)
+	refreshTokenRepository := repositories.NewRefreshTokenRepository(db)
 
 	// Service
 	userService := services.NewUserService(userRepository)
-	authService := services.NewAuthService(authRepository, userService)
+	authService := services.NewAuthService(authRepository, userService, *envConfig, refreshTokenRepository, redisClient)
 	notificationService := services.NewNotificationService(repositories.NewNotificationRepository(db))
 	moderationVoteService := services.NewModerationVoteService(repositories.NewModerationVoteRepository(db))
 

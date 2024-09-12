@@ -3,6 +3,7 @@ package models
 import (
 	"context"
 	"net/mail"
+	"time"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -25,12 +26,15 @@ type AuthRepository interface {
 
 // for login, registration, and verification
 type AuthService interface {
-	Login(ctx context.Context, loginData *AuthCredentials) (string, *User, error)
+	Login(ctx context.Context, loginData *AuthCredentials) (map[string]string, *User, error)
 	Register(ctx context.Context, registerData *AuthCredentials) (string, *User, error)
 	EnableTwoFactor(ctx context.Context, userID uint) error
 	VerifyPhoneNumber(ctx context.Context, userID uint, code string) error
 	VerifyEmail(ctx context.Context, userID uint) error
 	IsValidTwoFACode(twoFACode string) bool
+	Logout(ctx context.Context, refreshToken string) error
+	RotateRefreshToken(ctx context.Context, oldRefreshToken string) (map[string]string, error)
+	BlacklistAccessToken(ctx context.Context, accessToken string, expiry time.Duration) error
 }
 
 // Check if a password matches a hash
