@@ -8,13 +8,16 @@ export async function GET(request: Request) {
   }
 
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/get-all`, {
-      method: 'GET',
-      headers: {
-        'Authorization': token,
-        'Content-Type': 'application/json',
-      },
-    });
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/users/get-all`,
+      {
+        method: 'GET',
+        headers: {
+          Authorization: token,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
 
     const responseText = await response.text();
     let data;
@@ -29,14 +32,19 @@ export async function GET(request: Request) {
     }
 
     if (!response.ok) {
-      throw new Error(data.message || `Failed to fetch users: ${response.statusText}`);
+      throw new Error(
+        data.message || `Failed to fetch users: ${response.statusText}`
+      );
     }
 
     return NextResponse.json(data);
   } catch (error) {
     console.error('Error in GET request:', error);
     return NextResponse.json(
-      { message: error instanceof Error ? error.message : 'An error occurred', details: error },
+      {
+        message: error instanceof Error ? error.message : 'An error occurred',
+        details: error,
+      },
       { status: 500 }
     );
   }

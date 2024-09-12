@@ -144,12 +144,10 @@ func (s *AuthService) Register(ctx context.Context, registerData *models.AuthCre
 	if _, err := s.repository.GetUser(ctx, "email = ?", registerData.Email); !errors.Is(err, gorm.ErrRecordNotFound) {
 		return "", nil, fmt.Errorf("the user email is already in use")
 	}
-
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(registerData.Password), bcrypt.DefaultCost)
 	if err != nil {
 		return "", nil, err
 	}
-
 	registerData.Password = string(hashedPassword)
 
 	user, err := s.repository.RegisterUser(ctx, registerData)
@@ -163,7 +161,6 @@ func (s *AuthService) Register(ctx context.Context, registerData *models.AuthCre
 		"exp":  time.Now().Add(time.Hour * 168).Unix(),
 	}
 
-	// Generate the JWT
 	token, err := utils.GenerateJWT(claims, jwt.SigningMethodHS256, os.Getenv("JWT_SECRET"))
 	if err != nil {
 		return "", nil, err
@@ -189,6 +186,31 @@ func (s *AuthService) IsValidTwoFACode(twoFACode string) bool {
 	// Here we could verify the 2FA code, for example, with a service like Google Authenticator
 	// For this example, we'll assume that "654321" is a valid code
 	return twoFACode == "654321"
+}
+
+func (s *AuthService) GetUserDataFromToken(ctx context.Context, token string) (*models.User, error) {
+	parsedToken, err := utils.ParseToken(token, s.config.AccessTokenSecret)
+	if err != nil || !parsedToken.Valid {
+		return nil, errors.New("invalid token")
+	}
+
+	claims, ok := parsedToken.Claims.(jwt.MapClaims)
+	if !ok {
+		return nil, errors.New("could not parse token claims")
+	}
+
+	userID, ok := claims["id"].(float64)
+	if !ok {
+		return nil, errors.New("invalid token claims")
+	}
+
+	// Fetch the user by ID from the database
+	user, err := s.userService.GetUserByID(ctx, uint(userID))
+	if err != nil {
+		return nil, errors.New("user not found")
+	}
+
+	return user, nil
 }
 
 func NewAuthService(

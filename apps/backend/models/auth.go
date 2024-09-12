@@ -35,6 +35,7 @@ type AuthService interface {
 	Logout(ctx context.Context, refreshToken string) error
 	RotateRefreshToken(ctx context.Context, oldRefreshToken string) (map[string]string, error)
 	BlacklistAccessToken(ctx context.Context, accessToken string, expiry time.Duration) error
+	GetUserDataFromToken(ctx context.Context, token string) (*User, error)
 }
 
 // Check if a password matches a hash

@@ -24,6 +24,9 @@
     "stop": {
       "cache": false
     },
+    "stop-clean": {
+      "cache": false
+    },
     "ui": {
       "cache": false
     }

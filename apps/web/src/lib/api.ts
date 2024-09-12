@@ -22,11 +22,11 @@ async function refreshAccessToken(): Promise<string | null> {
 
 export async function fetchWithAuth(url: string, options: RequestInit = {}) {
   const token = localStorage.getItem('token');
-  
+
   if (token) {
     options.headers = {
       ...options.headers,
-      'Authorization': `Bearer ${token}`
+      Authorization: `Bearer ${token}`,
     };
   }
 
@@ -39,7 +39,7 @@ export async function fetchWithAuth(url: string, options: RequestInit = {}) {
       // Retry the request with the new token
       options.headers = {
         ...options.headers,
-        'Authorization': `Bearer ${newToken}`
+        Authorization: `Bearer ${newToken}`,
       };
       response = await fetch(url, options);
     }

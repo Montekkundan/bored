@@ -4,7 +4,8 @@
     "private": true,
     "scripts": {
       "dev": "make start",
-      "start": "make start",
-      "stop": "make stop"
+      "start": "make start-build",
+      "stop": "make stop",
+      "stop-clean": "make stop-clean"
     }
   }

@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/go-playground/validator/v10"
@@ -255,6 +256,48 @@ func (h *AuthHandler) RotateRefreshToken(ctx *fiber.Ctx) error {
 	})
 }
 
+// @Summary Get User Data
+// @Description Fetch the currently authenticated user's data.
+// @Tags User
+// @Produce json
+// @Success 200 {object} models.User
+// @Failure 401 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Router /auth/me [get]
+func (h *AuthHandler) GetMe(ctx *fiber.Ctx) error {
+	token := ctx.Get("Authorization")
+	if token == "" {
+		return ctx.Status(fiber.StatusUnauthorized).JSON(&fiber.Map{
+			"status":  "fail",
+			"message": "Unauthorized",
+		})
+	}
+
+	// Extract the actual token from "Bearer <token>"
+	parts := strings.Split(token, " ")
+	if len(parts) != 2 || parts[0] != "Bearer" {
+		return ctx.Status(fiber.StatusUnauthorized).JSON(&fiber.Map{
+			"status":  "fail",
+			"message": "Invalid token format",
+		})
+	}
+
+	token = parts[1]
+
+	user, err := h.authService.GetUserDataFromToken(ctx.Context(), token)
+	if err != nil {
+		return ctx.Status(fiber.StatusUnauthorized).JSON(&fiber.Map{
+			"status":  "fail",
+			"message": err.Error(),
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(&fiber.Map{
+		"status": "success",
+		"data":   user,
+	})
+}
+
 func NewAuthHandler(route fiber.Router, authService models.AuthService, userService models.UserService) {
 	handler := &AuthHandler{
 		authService: authService,
@@ -268,4 +311,5 @@ func NewAuthHandler(route fiber.Router, authService models.AuthService, userServ
 	route.Post("/enable-2fa", handler.EnableTwoFactor)
 	route.Post("/logout", handler.Logout)
 	route.Post("/rotate-token", handler.RotateRefreshToken)
+	route.Get("/me", handler.GetMe)
 }

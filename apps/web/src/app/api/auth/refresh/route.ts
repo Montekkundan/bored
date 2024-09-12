@@ -2,13 +2,16 @@ import { NextResponse } from 'next/server';
 
 export async function POST() {
   try {
-    const apiResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/rotate-token`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      credentials: 'include', // to include the refresh token cookie
-    });
+    const apiResponse = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/auth/rotate-token`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include', // to include the refresh token cookie
+      }
+    );
 
     const data = await apiResponse.json();
 

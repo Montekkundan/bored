@@ -36,7 +36,7 @@ type User struct {
 	OAuthProviders   []OAuthProvider  `json:"oauth_providers" gorm:"foreignkey:UserID"` // Connected OAuth accounts
 	AudioEnabled     bool             `json:"audio_enabled" gorm:"default:false"`
 	VideoEnabled     bool             `json:"video_enabled" gorm:"default:false"`
-	Roles            pq.StringArray   `json:"roles" gorm:"type:text[];default:ARRAY['bored_user']::text[]"`
+	Roles            pq.StringArray   `json:"roles" gorm:"type:text[];default:ARRAY['bored_user']::text[]" swaggertype:"array,string"`
 	EmailVerified    bool             `json:"email_verified" gorm:"default:false"`
 	PhoneNumber      string           `json:"phone_number" gorm:"text;unique"` // Phone number for 2FA
 	PhoneVerified    bool             `json:"phone_verified" gorm:"default:false"`
@@ -49,6 +49,7 @@ type User struct {
 	UpdatedAt        time.Time        `json:"updated_at" gorm:"default:now()"`
 	Chats            []Chat           `json:"chats" gorm:"many2many:user_chats"`         // Direct and group chats
 	ModerationVotes  []ModerationVote `json:"moderation_votes" gorm:"foreignkey:UserID"` // Votes for content moderation
+	Deactivated      bool             `json:"deactivated" gorm:"default:false"`
 }
 
 type UserService interface {
@@ -57,6 +58,8 @@ type UserService interface {
 	GetUserByUsername(ctx context.Context, username string) (*User, error)
 	GetUserByEmail(ctx context.Context, email string) (*User, error)
 	UpdateUser(ctx context.Context, user *User) error
+	DeleteUserByID(ctx context.Context, userID uint) error
+	DeactivateUser(ctx context.Context, userID uint) error
 }
 
 type UserRepository interface {
@@ -65,6 +68,8 @@ type UserRepository interface {
 	GetUserByUsername(ctx context.Context, username string) (*User, error)
 	GetUserByEmail(ctx context.Context, email string) (*User, error)
 	UpdateUser(ctx context.Context, user *User) error
+	DeleteUserByID(ctx context.Context, userID uint) error
+	DeactivateUser(ctx context.Context, userID uint) error
 }
 
 // AfterCreate hook to assign the admin role to the first user in the database
@@ -73,4 +78,13 @@ func (u *User) AfterCreate(db *gorm.DB) (err error) {
 		db.Model(u).Update("roles", pq.StringArray{string(Admin)})
 	}
 	return
+}
+
+func (u *User) HasRole(role UserRole) bool {
+	for _, r := range u.Roles {
+		if UserRole(r) == role {
+			return true
+		}
+	}
+	return false
 }

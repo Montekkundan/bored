@@ -47,6 +47,14 @@ func (r *UserRepository) UpdateUser(ctx context.Context, user *models.User) erro
 	return r.db.Save(user).Error
 }
 
+func (r *UserRepository) DeleteUserByID(ctx context.Context, userID uint) error {
+	return r.db.Delete(&models.User{}, userID).Error
+}
+
+func (r *UserRepository) DeactivateUser(ctx context.Context, userID uint) error {
+	return r.db.Model(&models.User{}).Where("id = ?", userID).Update("deactivated", true).Error
+}
+
 func NewUserRepository(db *gorm.DB) models.UserRepository {
 	return &UserRepository{
 		db: db,

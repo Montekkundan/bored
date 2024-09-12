@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/montekkundan/bored/backend/models"
@@ -132,6 +133,75 @@ func (h *UserHandler) UpdateUser(ctx *fiber.Ctx) error {
 	})
 }
 
+func (h *UserHandler) DeleteUser(ctx *fiber.Ctx) error {
+	userID := ctx.Locals("userId").(uint)
+
+	err := h.service.DeleteUserByID(context.Background(), userID)
+	if err != nil {
+		return ctx.Status(fiber.StatusInternalServerError).JSON(&fiber.Map{
+			"status":  "fail",
+			"message": "Failed to delete user",
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(&fiber.Map{
+		"status":  "success",
+		"message": "User deleted successfully",
+	})
+}
+
+func (h *UserHandler) DeactivateAccount(ctx *fiber.Ctx) error {
+	userID := ctx.Locals("userId").(uint)
+
+	err := h.service.DeactivateUser(context.Background(), userID)
+	if err != nil {
+		return ctx.Status(fiber.StatusInternalServerError).JSON(&fiber.Map{
+			"status":  "fail",
+			"message": "Failed to deactivate account",
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(&fiber.Map{
+		"status":  "success",
+		"message": "Account deactivated successfully",
+	})
+}
+
+func (h *UserHandler) AdminDeleteUser(ctx *fiber.Ctx) error {
+	adminUser := ctx.Locals("userId").(uint)
+
+	// Check if the user has Admin privileges
+	user, err := h.service.GetUserByID(context.Background(), adminUser)
+	if err != nil || !user.HasRole(models.Admin) {
+		return ctx.Status(fiber.StatusUnauthorized).JSON(&fiber.Map{
+			"status":  "fail",
+			"message": "Admin privileges required",
+		})
+	}
+
+	targetUserIDStr := ctx.Params("id")
+	targetUserID, err := strconv.ParseUint(targetUserIDStr, 10, 32)
+	if err != nil {
+		return ctx.Status(fiber.StatusBadRequest).JSON(&fiber.Map{
+			"status":  "fail",
+			"message": "Invalid user ID format",
+		})
+	}
+
+	err = h.service.DeleteUserByID(context.Background(), uint(targetUserID))
+	if err != nil {
+		return ctx.Status(fiber.StatusInternalServerError).JSON(&fiber.Map{
+			"status":  "fail",
+			"message": "Failed to delete user",
+		})
+	}
+
+	return ctx.Status(fiber.StatusOK).JSON(&fiber.Map{
+		"status":  "success",
+		"message": "User deleted successfully",
+	})
+}
+
 func NewUserHandler(route fiber.Router, service models.UserService) {
 	handler := &UserHandler{
 		service: service,
@@ -139,4 +209,7 @@ func NewUserHandler(route fiber.Router, service models.UserService) {
 
 	route.Get("/get-all", handler.GetAllUsers)
 	route.Put("/update-user", handler.UpdateUser)
+	route.Delete("/delete", handler.DeleteUser)
+	route.Put("/deactivate-account", handler.DeactivateAccount)
+	route.Delete("/admin-delete/:id", handler.AdminDeleteUser)
 }
