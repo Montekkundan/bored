@@ -8,10 +8,12 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/montekkundan/bored/backend/config"
 	"github.com/montekkundan/bored/backend/db"
+	_ "github.com/montekkundan/bored/backend/docs"
 	"github.com/montekkundan/bored/backend/handlers"
 	"github.com/montekkundan/bored/backend/middlewares"
 	"github.com/montekkundan/bored/backend/repositories"
 	"github.com/montekkundan/bored/backend/services"
+	fiberSwagger "github.com/swaggo/fiber-swagger"
 )
 
 func main() {
@@ -26,6 +28,9 @@ func main() {
 		AppName:      "Bored",
 		ServerHeader: "Fiber",
 	})
+
+	// Swagger route
+	app.Get("/swagger/*", fiberSwagger.WrapHandler)
 
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: "http://localhost:3000",

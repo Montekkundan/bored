@@ -17,6 +17,16 @@ type AuthHandler struct {
 	userService models.UserService
 }
 
+// @Summary Login
+// @Description Logs a user into the system.
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param email body string true "Email"
+// @Param password body string true "Password"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Router /auth/login [post]
 func (h *AuthHandler) Login(ctx *fiber.Ctx) error {
 	creds := &models.AuthCredentials{}
 
