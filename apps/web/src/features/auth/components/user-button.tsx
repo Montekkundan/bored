@@ -44,7 +44,6 @@ export const UserButton = () => {
   }
 
   const { profile_picture, username } = data.data;
-  console.log('data', data);
   const avatarFallback = username.charAt(0).toUpperCase();
 
   return (

@@ -202,6 +202,48 @@ func (h *UserHandler) AdminDeleteUser(ctx *fiber.Ctx) error {
 	})
 }
 
+func (h *UserHandler) GetUserBoringSpaces(ctx *fiber.Ctx) error {
+	userIDValue := ctx.Locals("userId")
+	if userIDValue == nil {
+		return ctx.Status(fiber.StatusUnauthorized).JSON(&fiber.Map{
+			"status":  "fail",
+			"message": "User ID not found in the context",
+		})
+	}
+	userID, ok := userIDValue.(uint)
+	if !ok {
+		return ctx.Status(fiber.StatusUnauthorized).JSON(&fiber.Map{
+			"status":  "fail",
+			"message": "Invalid user ID",
+		})
+	}
+
+	boringSpaces, err := h.service.GetUserBoringSpaces(context.Background(), userID)
+	if err != nil {
+		return ctx.Status(fiber.StatusInternalServerError).JSON(&fiber.Map{
+			"status":  "error",
+			"message": "Could not retrieve BoringSpaces",
+		})
+	}
+
+	return ctx.JSON(&fiber.Map{
+		"status": "success",
+		"data":   boringSpaces,
+	})
+}
+
+func (h *UserHandler) GetAllPublicMessages(ctx *fiber.Ctx) error {
+	limit, _ := strconv.Atoi(ctx.Query("limit", "20"))
+	offset, _ := strconv.Atoi(ctx.Query("offset", "0"))
+
+	messages, err := h.service.GetAllPublicMessages(context.Background(), limit, offset)
+	if err != nil {
+		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"status": "error", "message": "Failed to retrieve messages"})
+	}
+
+	return ctx.JSON(fiber.Map{"status": "success", "data": messages})
+}
+
 func NewUserHandler(route fiber.Router, service models.UserService) {
 	handler := &UserHandler{
 		service: service,
@@ -212,4 +254,6 @@ func NewUserHandler(route fiber.Router, service models.UserService) {
 	route.Delete("/delete", handler.DeleteUser)
 	route.Put("/deactivate-account", handler.DeactivateAccount)
 	route.Delete("/admin-delete/:id", handler.AdminDeleteUser)
+	route.Get("/boringspaces", handler.GetUserBoringSpaces)
+	route.Get("/public-messages", handler.GetAllPublicMessages)
 }

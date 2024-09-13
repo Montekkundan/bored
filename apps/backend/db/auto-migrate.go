@@ -16,5 +16,9 @@ func DBMigrator(db *gorm.DB) error {
 		&models.Message{},
 		&models.ModerationVote{},
 		&models.RefreshToken{},
+		&models.PublicMessage{},
+		&models.Comment{},
+		&models.BoringSpace{},
+		&models.BoringSpaceMember{},
 	)
 }

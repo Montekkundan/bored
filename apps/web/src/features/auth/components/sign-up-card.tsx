@@ -78,8 +78,6 @@ export const SignUpCard = ({ setState }: SignUpCardProps) => {
 
   const onProviderSignUp = (value: 'github' | 'google') => {
     setPending(true);
-    // Implement OAuth sign-up logic here
-    console.log(`Sign up with ${value}`);
     setPending(false);
   };
 

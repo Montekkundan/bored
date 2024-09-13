@@ -38,6 +38,14 @@ func (s *UserService) DeactivateUser(ctx context.Context, userID uint) error {
 	return s.repository.DeactivateUser(ctx, userID)
 }
 
+func (s *UserService) GetUserBoringSpaces(ctx context.Context, userID uint) ([]*models.BoringSpaceMember, error) {
+	return s.repository.GetUserBoringSpaces(ctx, userID)
+}
+
+func (s *UserService) GetAllPublicMessages(ctx context.Context, limit, offset int) ([]*models.PublicMessage, error) {
+	return s.repository.GetAllPublicMessages(ctx, limit, offset)
+}
+
 func NewUserService(repository models.UserRepository) models.UserService {
 	return &UserService{
 		repository: repository,

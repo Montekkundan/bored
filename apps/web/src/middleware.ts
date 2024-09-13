@@ -8,7 +8,6 @@ const isPublicPage = (pathname: string) => {
 
 const isAuthenticated = (request: NextRequest) => {
   const token = request.cookies.get('token');
-  console.log('isAuthenticated token', token);
   return !!token;
 };
 

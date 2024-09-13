@@ -57,8 +57,6 @@ export const SignInCard = ({ setState }: SignInCardProps) => {
       if (!response.ok) {
         throw new Error(data.message || 'An error occurred during login');
       }
-
-      console.log('Login successful:', data);
       // Store user data in localStorage
       localStorage.setItem('user', JSON.stringify(data.data.user));
       router.push('/');

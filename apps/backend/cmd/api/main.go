@@ -46,12 +46,16 @@ func main() {
 	chatRepository := repositories.NewChatRepository(db)
 	oauthProviderRepository := repositories.NewOAuthProviderRepository(db)
 	refreshTokenRepository := repositories.NewRefreshTokenRepository(db)
+	boringSpaceRepository := repositories.NewBoringSpaceRepository(db)
+	publicMessageRepository := repositories.NewPublicMessageRepository(db)
 
 	// Service
 	userService := services.NewUserService(userRepository)
 	authService := services.NewAuthService(authRepository, userService, *envConfig, refreshTokenRepository, redisClient)
 	notificationService := services.NewNotificationService(repositories.NewNotificationRepository(db))
 	moderationVoteService := services.NewModerationVoteService(repositories.NewModerationVoteRepository(db))
+	boringSpaceService := services.NewBoringSpaceService(boringSpaceRepository)
+	publicMessageService := services.NewPublicMessageService(publicMessageRepository)
 
 	// Routing
 	server := app.Group("/api")
@@ -67,6 +71,8 @@ func main() {
 	handlers.NewNotificationHandler(privateRoutes.Group("/notifications"), notificationService)
 	handlers.NewModerationVoteHandler(privateRoutes.Group("/moderation"), moderationVoteService)
 	handlers.NewUserHandler(privateRoutes.Group("/users"), userService)
+	handlers.NewBoringSpaceHandler(privateRoutes.Group("/boringspaces"), boringSpaceService, userService)
+	handlers.NewPublicMessageHandler(privateRoutes.Group("/public-messages"), publicMessageService, userService)
 
 	app.Listen(fmt.Sprintf(":%s", envConfig.ServerPort))
 }

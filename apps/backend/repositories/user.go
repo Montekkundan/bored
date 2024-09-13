@@ -55,6 +55,31 @@ func (r *UserRepository) DeactivateUser(ctx context.Context, userID uint) error 
 	return r.db.Model(&models.User{}).Where("id = ?", userID).Update("deactivated", true).Error
 }
 
+func (r *UserRepository) GetUserBoringSpaces(ctx context.Context, userID uint) ([]*models.BoringSpaceMember, error) {
+	var memberships []*models.BoringSpaceMember
+	err := r.db.WithContext(ctx).
+		Preload("BoringSpace").
+		Where("user_id = ?", userID).
+		Find(&memberships).Error
+	if err != nil {
+		return nil, err
+	}
+	return memberships, nil
+}
+
+func (r *UserRepository) GetAllPublicMessages(ctx context.Context, limit, offset int) ([]*models.PublicMessage, error) {
+	var messages []*models.PublicMessage
+	err := r.db.WithContext(ctx).
+		Preload("User").
+		Preload("Likes").
+		Preload("Comments").
+		Order("created_at DESC").
+		Limit(limit).
+		Offset(offset).
+		Find(&messages).Error
+	return messages, err
+}
+
 func NewUserRepository(db *gorm.DB) models.UserRepository {
 	return &UserRepository{
 		db: db,
